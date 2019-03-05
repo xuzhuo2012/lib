@@ -1,0 +1,45 @@
+apply plugin: 'com.android.library'
+//启用Jitpack 插件
+apply plugin: 'com.github.dcendents.android-maven'
+
+//设置Jitpack发布的Group
+//我的github账号是helen-x, 对应我的group就是com.github.helen-x
+group = 'com.github.wumart-android'
+
+android {
+    compileSdkVersion 27
+
+    defaultConfig {
+        minSdkVersion 16
+        targetSdkVersion 27
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+configurations.all {
+    resolutionStrategy.cacheChangingModulesFor 1, 'minutes' // 这是用来强制刷新SNAPSHOT包
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'com.android.support:appcompat-v7:27.1.1'
+    implementation 'com.wumart.lib:wumart-android:2.1.7@aar'
+    implementation 'com.lzy.net:okgo:3.0.4'
+    implementation 'com.google.code.gson:gson:2.8.2'
+    implementation 'com.daimajia.easing:library:2.0@aar'
+    implementation 'com.daimajia.androidanimations:library:2.2@aar'
+    api 'com.github.wumart-android:imagepicker:1.0.1'
+}
