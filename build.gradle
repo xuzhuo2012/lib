@@ -4,12 +4,10 @@ buildscript {
     repositories {
         google()
         jcenter()
-
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.1.4'
-        //添加jitpack依赖
-        classpath 'com.github.dcendents:android-maven-gradle-plugin:1.5'
+        classpath 'com.github.dcendents:android-maven-gradle-plugin:1.5' //添加jitpack依赖
     }
 }
 
@@ -18,8 +16,6 @@ allprojects {
         google()
         jcenter()
         maven { url "https://jitpack.io" }
-        maven { url "http://10.13.3.10:8081/nexus/content/repositories/releases/" }
-        maven { url "http://10.13.3.10:8081/nexus/content/repositories/snapshots/" }
     }
     tasks.withType(Javadoc) { // 新增
         options.addStringOption('Xdoclint:none', '-quiet')

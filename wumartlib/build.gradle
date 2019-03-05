@@ -29,14 +29,9 @@ android {
     }
 }
 
-configurations.all {
-    resolutionStrategy.cacheChangingModulesFor 1, 'minutes' // 这是用来强制刷新SNAPSHOT包
-}
-
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation fileTree(dir: 'libs', include: ['*.jar','*.aar'])
     implementation 'com.android.support:appcompat-v7:27.1.1'
-    implementation 'com.wumart.lib:wumart-android:2.1.7@aar'
     implementation 'com.lzy.net:okgo:3.0.4'
     implementation 'com.google.code.gson:gson:2.8.2'
     implementation 'com.daimajia.easing:library:2.0@aar'
