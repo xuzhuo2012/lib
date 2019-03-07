@@ -42,4 +42,5 @@ dependencies {
     implementation 'com.android.support:appcompat-v7:27.1.1'
     implementation 'com.daimajia.easing:library:2.0@aar'
     implementation 'com.daimajia.androidanimations:library:2.2@aar'
+    implementation 'com.squareup.okhttp3:okhttp:3.8.1'
 }
