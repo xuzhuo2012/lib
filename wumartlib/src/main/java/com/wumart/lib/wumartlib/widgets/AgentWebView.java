@@ -9,6 +9,7 @@ import android.net.http.SslError;
 import android.support.v4.content.ContextCompat;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
+import android.view.View;
 import android.webkit.DownloadListener;
 import android.webkit.JsResult;
 import android.webkit.SslErrorHandler;
@@ -37,6 +38,7 @@ public class AgentWebView extends WebView {
     private Map<String, String> mMap;
     private WebViewLoadInterface mLoadFinish;
     private WebViewFileChooseInterface fileChooseInterface;
+    private WebViewVideoInterface viewVideoInterface;
     private ValueCallback<Uri> valueCallback;
     private ValueCallback<Uri[]> valueCallback2;
     private int FILECHOOSER_RESULTCODE = 1;
@@ -251,7 +253,33 @@ public class AgentWebView extends WebView {
         void openFileChooserImplForAndroid5(Intent intent, int requestCode);
     }
 
+    public void setViewVideoInterface(WebViewVideoInterface viewVideoInterface) {
+        this.viewVideoInterface = viewVideoInterface;
+    }
+
+    public interface WebViewVideoInterface {
+        void onShowCustomView(View view, WebChromeClient.CustomViewCallback callback);
+
+        void onHideCustomView();
+
+        boolean isVideoState();
+    }
+
     public class MyWebChromeClient extends WebChromeClient {
+
+        @Override
+        public void onShowCustomView(View view, CustomViewCallback callback) {
+            if (viewVideoInterface != null) {
+                viewVideoInterface.onShowCustomView(view, callback);
+            }
+        }
+
+        @Override
+        public void onHideCustomView() {
+            if (viewVideoInterface != null) {
+                viewVideoInterface.onHideCustomView();
+            }
+        }
 
         @Override
         public void onProgressChanged(WebView webView, int newProgress) {
