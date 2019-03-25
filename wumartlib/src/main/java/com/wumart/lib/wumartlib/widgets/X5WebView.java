@@ -1,12 +1,18 @@
 package com.wumart.lib.wumartlib.widgets;
 
 import android.annotation.SuppressLint;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Environment;
 import android.os.Looper;
+import android.os.Parcelable;
 import android.os.SystemClock;
+import android.provider.MediaStore;
 import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -36,6 +42,7 @@ import com.wumart.lib.wumartlib.widgets.jsbridge.DefaultHandler;
 import com.wumart.lib.wumartlib.widgets.jsbridge.Message;
 import com.wumart.lib.wumartlib.widgets.jsbridge.WebViewJavascriptBridge;
 
+import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -66,6 +73,7 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
     private long uniqueId = 0;
     private List<Message> startupMessage = new ArrayList<>();
     public static final String toLoadJs = "WebViewJavascriptBridge.js";
+    public boolean isChooseImage = false;
 
     public X5WebView(Context context) {
         super(context);
@@ -114,6 +122,10 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
         this.mLoadFinish = null;
         this.progressBar = null;
         super.onDetachedFromWindow();
+    }
+
+    public void setChooseImage(boolean chooseImage) {
+        this.isChooseImage = chooseImage;
     }
 
     public void setTitleTv(TextView titleTv) {
@@ -359,23 +371,108 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
 
         private void openFileChooserImplForAndroid(ValueCallback<Uri> valueCallback) {
             if (fileChooseInterface != null) {
-                X5WebView.this.valueCallback = valueCallback;
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("*/*");
-                fileChooseInterface.openFileChooserImplForAndroidLow(Intent.createChooser(intent, "文件选择"), FILECHOOSER_RESULTCODE);
+                if (isChooseImage) {
+                    chooseImageForAndroid(valueCallback);
+                } else {
+                    chooseFileForAndroid(valueCallback);
+                }
             }
+        }
+
+        /**
+         * 选择图片
+         */
+        private void chooseImageForAndroid(ValueCallback<Uri> valueCallback) {
+            X5WebView.this.valueCallback = valueCallback;
+            File imageStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "ImplForAndroid");
+            if (!imageStorageDir.exists()) {
+                imageStorageDir.mkdirs();
+            }
+            File file = new File(imageStorageDir + File.separator + "IMG_" + String.valueOf(System.currentTimeMillis()) + ".jpg");
+            Uri imageUri = Uri.fromFile(file);
+            final List<Intent> cameraIntents = new ArrayList<>();
+            final Intent captureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            final PackageManager packageManager = getContext().getPackageManager();
+            final List<ResolveInfo> listCam = packageManager.queryIntentActivities(captureIntent, 0);
+            for (ResolveInfo res : listCam) {
+                final String packageName = res.activityInfo.packageName;
+                final Intent i = new Intent(captureIntent);
+                i.setComponent(new ComponentName(res.activityInfo.packageName, res.activityInfo.name));
+                i.setPackage(packageName);
+                i.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+                cameraIntents.add(i);
+            }
+            Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.setType("image/*");
+            Intent intent = Intent.createChooser(i, "Image Chooser");
+            intent.putExtra(Intent.EXTRA_INITIAL_INTENTS, cameraIntents.toArray(new Parcelable[]{}));
+            fileChooseInterface.openFileChooserImplForAndroidLow(intent, FILECHOOSER_RESULTCODE);
+        }
+
+        /**
+         * 选择文件
+         */
+        private void chooseFileForAndroid(ValueCallback<Uri> valueCallback) {
+            X5WebView.this.valueCallback = valueCallback;
+            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            fileChooseInterface.openFileChooserImplForAndroidLow(Intent.createChooser(intent, "File Chooser"), FILECHOOSER_RESULTCODE);
         }
 
         //Android5.0 以上版本
         private void openFileChooserImplForAndroid2(ValueCallback<Uri[]> valueCallback2) {
             if (fileChooseInterface != null) {
-                X5WebView.this.valueCallback2 = valueCallback2;
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("*/*");
-                fileChooseInterface.openFileChooserImplForAndroid5(Intent.createChooser(intent, "文件选择"), FILECHOOSER_RESULTCODE_FOR_ANDROID_5);
+                if (isChooseImage) {
+                    chooseImageForAndroid2(valueCallback2);
+                } else {
+                    chooseFileForAndroid2(valueCallback2);
+                }
             }
+        }
+
+        /**
+         * 选择图片
+         */
+        private void chooseImageForAndroid2(ValueCallback<Uri[]> valueCallback2) {
+            X5WebView.this.valueCallback2 = valueCallback2;
+            File imageStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "ImplForAndroid");
+            if (!imageStorageDir.exists()) {
+                imageStorageDir.mkdirs();
+            }
+            File file = new File(imageStorageDir + File.separator + "IMG_" + String.valueOf(System.currentTimeMillis()) + ".jpg");
+            Uri imageUri = Uri.fromFile(file);
+            final List<Intent> cameraIntents = new ArrayList<>();
+            final Intent captureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            final PackageManager packageManager = getContext().getPackageManager();
+            final List<ResolveInfo> listCam = packageManager.queryIntentActivities(captureIntent, 0);
+            for (ResolveInfo res : listCam) {
+                final String packageName = res.activityInfo.packageName;
+                final Intent i = new Intent(captureIntent);
+                i.setComponent(new ComponentName(res.activityInfo.packageName, res.activityInfo.name));
+                i.setPackage(packageName);
+                i.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+                cameraIntents.add(i);
+            }
+            Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.setType("image/*");
+            Intent intent = Intent.createChooser(i, "Image Chooser");
+            intent.putExtra(Intent.EXTRA_INITIAL_INTENTS, cameraIntents.toArray(new Parcelable[]{}));
+            fileChooseInterface.openFileChooserImplForAndroid5(intent, FILECHOOSER_RESULTCODE_FOR_ANDROID_5);
+
+        }
+
+        /**
+         * 选择文件
+         */
+        private void chooseFileForAndroid2(ValueCallback<Uri[]> valueCallback2) {
+            X5WebView.this.valueCallback2 = valueCallback2;
+            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            fileChooseInterface.openFileChooserImplForAndroid5(Intent.createChooser(intent, "File Chooser"), FILECHOOSER_RESULTCODE_FOR_ANDROID_5);
         }
     }
 
