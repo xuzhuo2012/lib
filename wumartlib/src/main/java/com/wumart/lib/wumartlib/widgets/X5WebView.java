@@ -237,12 +237,12 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView webView, String url) {
-            if (url.startsWith("tel:")) {
+            if (url.startsWith("http:")) {
+                loadUrl(url, mMap);
+                return true;
+            } else if (url.startsWith("tel:")) {
                 Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
                 getContext().startActivity(intent);
-                return true;
-            } else if (url.startsWith("http:")) {
-                loadUrl(url, mMap);
                 return true;
             } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
                 handlerReturnData(url);
@@ -252,6 +252,26 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                 return true;
             }
             return super.shouldOverrideUrlLoading(webView, url);
+        }
+
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest webResourceRequest) {
+            String url = webResourceRequest.getUrl().toString();
+            if (url.startsWith("http:")) {
+                loadUrl(url, mMap);
+                return true;
+            } else if (url.startsWith("tel:")) {
+                Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
+                getContext().startActivity(intent);
+                return true;
+            } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
+                handlerReturnData(url);
+                return true;
+            } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
+                flushMessageQueue();
+                return true;
+            }
+            return super.shouldOverrideUrlLoading(webView, webResourceRequest);
         }
     }
 
