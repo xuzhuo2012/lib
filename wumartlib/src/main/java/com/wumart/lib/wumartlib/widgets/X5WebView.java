@@ -36,6 +36,8 @@ import com.wumart.lib.wumartlib.widgets.jsbridge.DefaultHandler;
 import com.wumart.lib.wumartlib.widgets.jsbridge.Message;
 import com.wumart.lib.wumartlib.widgets.jsbridge.WebViewJavascriptBridge;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -245,6 +247,11 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                 getContext().startActivity(intent);
                 return true;
             } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
+                try {
+                    url = URLDecoder.decode(url, "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
                 handlerReturnData(url);
                 return true;
             } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
@@ -265,6 +272,11 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                 getContext().startActivity(intent);
                 return true;
             } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
+                try {
+                    url = URLDecoder.decode(url, "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
                 handlerReturnData(url);
                 return true;
             } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
