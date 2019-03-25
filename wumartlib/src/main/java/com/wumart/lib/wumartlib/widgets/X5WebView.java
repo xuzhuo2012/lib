@@ -1,13 +1,10 @@
 package com.wumart.lib.wumartlib.widgets;
 
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import android.os.Build;
-import android.os.Bundle;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.support.v4.content.ContextCompat;
@@ -23,7 +20,6 @@ import com.tencent.smtt.export.external.interfaces.SslError;
 import com.tencent.smtt.export.external.interfaces.SslErrorHandler;
 import com.tencent.smtt.export.external.interfaces.WebResourceError;
 import com.tencent.smtt.export.external.interfaces.WebResourceRequest;
-import com.tencent.smtt.export.external.interfaces.WebResourceResponse;
 import com.tencent.smtt.sdk.DownloadListener;
 import com.tencent.smtt.sdk.ValueCallback;
 import com.tencent.smtt.sdk.WebChromeClient;
@@ -256,30 +252,6 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                 return true;
             }
             return super.shouldOverrideUrlLoading(webView, url);
-        }
-
-        @Override
-        public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest webResourceRequest) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                String url = webResourceRequest.getUrl().toString();
-                if (url.startsWith("tel:")) {
-                    Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
-                    getContext().startActivity(intent);
-                    return true;
-                } else if (url.startsWith("http:")) {
-                    loadUrl(url, mMap);
-                    return true;
-                } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
-                    handlerReturnData(url);
-                    return true;
-                } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
-                    flushMessageQueue();
-                    return true;
-                } else {
-                    return super.shouldOverrideUrlLoading(webView, webResourceRequest);
-                }
-            }
-            return super.shouldOverrideUrlLoading(webView, webResourceRequest);
         }
     }
 
