@@ -1,10 +1,12 @@
 package com.wumart.lib.wumartlib.widgets;
 
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.support.v4.content.ContextCompat;
@@ -256,6 +258,33 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
             } else {
                 return false;
             }
+        }
+
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest webResourceRequest) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                String url = webResourceRequest.getUrl().toString();
+                if (url == null) {
+                    return false;
+                }
+                if (url.startsWith("tel:")) {
+                    Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
+                    getContext().startActivity(intent);
+                    return true;
+                } else if (url.startsWith("http:")) {
+                    loadUrl(url, mMap);
+                    return true;
+                } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
+                    handlerReturnData(url);
+                    return true;
+                } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
+                    flushMessageQueue();
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            return super.shouldOverrideUrlLoading(webView, webResourceRequest);
         }
     }
 
