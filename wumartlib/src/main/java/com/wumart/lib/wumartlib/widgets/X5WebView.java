@@ -1,6 +1,8 @@
 package com.wumart.lib.wumartlib.widgets;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -61,6 +63,8 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
     private WebViewLoadInterface mLoadFinish;
     private WebViewFileChooseInterface fileChooseInterface;
     private boolean isShowProgressBar = true;
+    public boolean isChooseImage = false;
+    private Uri imageUri;
 
     private ValueCallback<Uri> valueCallback;
     private ValueCallback<Uri[]> valueCallback2;
@@ -73,7 +77,6 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
     private long uniqueId = 0;
     private List<Message> startupMessage = new ArrayList<>();
     public static final String toLoadJs = "WebViewJavascriptBridge.js";
-    public boolean isChooseImage = false;
 
     public X5WebView(Context context) {
         super(context);
@@ -389,7 +392,7 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                 imageStorageDir.mkdirs();
             }
             File file = new File(imageStorageDir + File.separator + "IMG_" + String.valueOf(System.currentTimeMillis()) + ".jpg");
-            Uri imageUri = Uri.fromFile(file);
+            imageUri = Uri.fromFile(file);
             final List<Intent> cameraIntents = new ArrayList<>();
             final Intent captureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             final PackageManager packageManager = getContext().getPackageManager();
@@ -405,7 +408,7 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
             Intent i = new Intent(Intent.ACTION_GET_CONTENT);
             i.addCategory(Intent.CATEGORY_OPENABLE);
             i.setType("image/*");
-            Intent intent = Intent.createChooser(i, "Image Chooser");
+            Intent intent = Intent.createChooser(i, "文件选择");
             intent.putExtra(Intent.EXTRA_INITIAL_INTENTS, cameraIntents.toArray(new Parcelable[]{}));
             fileChooseInterface.openFileChooserImplForAndroidLow(intent, FILECHOOSER_RESULTCODE);
         }
@@ -418,7 +421,7 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
             Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("*/*");
-            fileChooseInterface.openFileChooserImplForAndroidLow(Intent.createChooser(intent, "File Chooser"), FILECHOOSER_RESULTCODE);
+            fileChooseInterface.openFileChooserImplForAndroidLow(Intent.createChooser(intent, "文件选择"), FILECHOOSER_RESULTCODE);
         }
 
         //Android5.0 以上版本
@@ -442,7 +445,7 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                 imageStorageDir.mkdirs();
             }
             File file = new File(imageStorageDir + File.separator + "IMG_" + String.valueOf(System.currentTimeMillis()) + ".jpg");
-            Uri imageUri = Uri.fromFile(file);
+            imageUri = Uri.fromFile(file);
             final List<Intent> cameraIntents = new ArrayList<>();
             final Intent captureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             final PackageManager packageManager = getContext().getPackageManager();
@@ -458,10 +461,9 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
             Intent i = new Intent(Intent.ACTION_GET_CONTENT);
             i.addCategory(Intent.CATEGORY_OPENABLE);
             i.setType("image/*");
-            Intent intent = Intent.createChooser(i, "Image Chooser");
+            Intent intent = Intent.createChooser(i, "文件选择");
             intent.putExtra(Intent.EXTRA_INITIAL_INTENTS, cameraIntents.toArray(new Parcelable[]{}));
             fileChooseInterface.openFileChooserImplForAndroid5(intent, FILECHOOSER_RESULTCODE_FOR_ANDROID_5);
-
         }
 
         /**
@@ -472,27 +474,78 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
             Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("*/*");
-            fileChooseInterface.openFileChooserImplForAndroid5(Intent.createChooser(intent, "File Chooser"), FILECHOOSER_RESULTCODE_FOR_ANDROID_5);
+            fileChooseInterface.openFileChooserImplForAndroid5(Intent.createChooser(intent, "文件选择"), FILECHOOSER_RESULTCODE_FOR_ANDROID_5);
         }
     }
 
     public void onFileChooseResult(int requestCode, int resultCode, Intent intent) {
         if (requestCode == FILECHOOSER_RESULTCODE) {
-            if (null == valueCallback)
-                return;
-            Uri result = intent == null || resultCode != RESULT_OK ? null : intent.getData();
-            valueCallback.onReceiveValue(result);
-            valueCallback = null;
-        } else if (requestCode == FILECHOOSER_RESULTCODE_FOR_ANDROID_5) {
-            if (null == valueCallback2)
-                return;
-            Uri result = (intent == null || resultCode != RESULT_OK) ? null : intent.getData();
-            if (result != null) {
-                valueCallback2.onReceiveValue(new Uri[]{result});
+            if (isChooseImage) {
+                onImageChooseResult(requestCode, resultCode, intent);
             } else {
-                valueCallback2.onReceiveValue(new Uri[]{});
+                if (null == valueCallback)
+                    return;
+                Uri result = intent == null || resultCode != RESULT_OK ? null : intent.getData();
+                valueCallback.onReceiveValue(result);
+                valueCallback = null;
             }
-            valueCallback2 = null;
+        } else if (requestCode == FILECHOOSER_RESULTCODE_FOR_ANDROID_5) {
+            if (isChooseImage) {
+                onImageChooseResult(requestCode, resultCode, intent);
+            } else {
+                if (null == valueCallback2)
+                    return;
+                Uri result = (intent == null || resultCode != RESULT_OK) ? null : intent.getData();
+                if (result != null) {
+                    valueCallback2.onReceiveValue(new Uri[]{result});
+                } else {
+                    valueCallback2.onReceiveValue(new Uri[]{});
+                }
+                valueCallback2 = null;
+            }
+        }
+    }
+
+    private void onImageChooseResult(int requestCode, int resultCode, Intent intent) {
+        Uri result = intent == null || resultCode != RESULT_OK ? null : intent.getData();
+        if (valueCallback2 != null) {
+            if (requestCode != FILECHOOSER_RESULTCODE_FOR_ANDROID_5) {
+                return;
+            }
+            Uri[] results = null;
+            if (resultCode == Activity.RESULT_OK) {
+                if (intent == null) {
+                    results = new Uri[]{imageUri};
+                } else {
+                    String dataString = intent.getDataString();
+                    ClipData clipData = intent.getClipData();
+                    if (clipData != null) {
+                        results = new Uri[clipData.getItemCount()];
+                        for (int i = 0; i < clipData.getItemCount(); i++) {
+                            ClipData.Item item = clipData.getItemAt(i);
+                            results[i] = item.getUri();
+                        }
+                    }
+                    if (dataString != null)
+                        results = new Uri[]{Uri.parse(dataString)};
+                }
+            }
+            if (results != null) {
+                valueCallback2.onReceiveValue(results);
+                valueCallback2 = null;
+            } else {
+                results = new Uri[]{imageUri};
+                valueCallback2.onReceiveValue(results);
+                valueCallback2 = null;
+            }
+        } else if (valueCallback != null) {
+            if (result == null) {
+                valueCallback.onReceiveValue(imageUri);
+                valueCallback = null;
+            } else {
+                valueCallback.onReceiveValue(result);
+                valueCallback = null;
+            }
         }
     }
 
