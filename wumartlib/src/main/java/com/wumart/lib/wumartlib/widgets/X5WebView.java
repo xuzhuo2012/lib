@@ -290,17 +290,40 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
         }
 
         @Override
-        public WebResourceResponse shouldInterceptRequest(WebView webView, String s) {
-            return super.shouldInterceptRequest(webView, s);
+        public WebResourceResponse shouldInterceptRequest(WebView webView, String url) {
+            if (!TextUtils.isEmpty(url)) {
+                if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
+                    handlerReturnData(url);
+                } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
+                    flushMessageQueue();
+                }
+            }
+            return super.shouldInterceptRequest(webView, url);
         }
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView webView, WebResourceRequest webResourceRequest) {
+            String url = webResourceRequest.getUrl().toString();
+            if (!TextUtils.isEmpty(url)) {
+                if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
+                    handlerReturnData(url);
+                } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
+                    flushMessageQueue();
+                }
+            }
             return super.shouldInterceptRequest(webView, webResourceRequest);
         }
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView webView, WebResourceRequest webResourceRequest, Bundle bundle) {
+            String url = webResourceRequest.getUrl().toString();
+            if (!TextUtils.isEmpty(url)) {
+                if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
+                    handlerReturnData(url);
+                } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
+                    flushMessageQueue();
+                }
+            }
             return super.shouldInterceptRequest(webView, webResourceRequest, bundle);
         }
     }
