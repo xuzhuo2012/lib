@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.support.v4.content.ContextCompat;
@@ -22,6 +23,7 @@ import com.tencent.smtt.export.external.interfaces.SslError;
 import com.tencent.smtt.export.external.interfaces.SslErrorHandler;
 import com.tencent.smtt.export.external.interfaces.WebResourceError;
 import com.tencent.smtt.export.external.interfaces.WebResourceRequest;
+import com.tencent.smtt.export.external.interfaces.WebResourceResponse;
 import com.tencent.smtt.sdk.DownloadListener;
 import com.tencent.smtt.sdk.ValueCallback;
 import com.tencent.smtt.sdk.WebChromeClient;
@@ -285,6 +287,21 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                 }
             }
             return super.shouldOverrideUrlLoading(webView, webResourceRequest);
+        }
+
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView webView, String s) {
+            return super.shouldInterceptRequest(webView, s);
+        }
+
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView webView, WebResourceRequest webResourceRequest) {
+            return super.shouldInterceptRequest(webView, webResourceRequest);
+        }
+
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView webView, WebResourceRequest webResourceRequest, Bundle bundle) {
+            return super.shouldInterceptRequest(webView, webResourceRequest, bundle);
         }
     }
 
