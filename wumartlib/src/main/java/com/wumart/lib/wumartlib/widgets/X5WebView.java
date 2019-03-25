@@ -238,6 +238,11 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
         }
 
         @Override
+        public void onLoadResource(WebView webView, String s) {
+            super.onLoadResource(webView, s);
+        }
+
+        @Override
         public boolean shouldOverrideUrlLoading(WebView webView, String url) {
             if (url.startsWith("http:")) {
                 loadUrl(url, mMap);
