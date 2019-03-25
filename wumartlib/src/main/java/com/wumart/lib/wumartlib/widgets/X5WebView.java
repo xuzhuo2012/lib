@@ -241,9 +241,6 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView webView, String url) {
-            if (url == null) {
-                return false;
-            }
             if (url.startsWith("tel:")) {
                 Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
                 getContext().startActivity(intent);
@@ -257,18 +254,14 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
             } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
                 flushMessageQueue();
                 return true;
-            } else {
-                return false;
             }
+            return super.shouldOverrideUrlLoading(webView, url);
         }
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest webResourceRequest) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 String url = webResourceRequest.getUrl().toString();
-                if (url == null) {
-                    return false;
-                }
                 if (url.startsWith("tel:")) {
                     Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
                     getContext().startActivity(intent);
@@ -283,48 +276,10 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                     flushMessageQueue();
                     return true;
                 } else {
-                    return false;
+                    return super.shouldOverrideUrlLoading(webView, webResourceRequest);
                 }
             }
             return super.shouldOverrideUrlLoading(webView, webResourceRequest);
-        }
-
-        @Override
-        public WebResourceResponse shouldInterceptRequest(WebView webView, String url) {
-            if (!TextUtils.isEmpty(url)) {
-                if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
-                    handlerReturnData(url);
-                } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
-                    flushMessageQueue();
-                }
-            }
-            return super.shouldInterceptRequest(webView, url);
-        }
-
-        @Override
-        public WebResourceResponse shouldInterceptRequest(WebView webView, WebResourceRequest webResourceRequest) {
-            String url = webResourceRequest.getUrl().toString();
-            if (!TextUtils.isEmpty(url)) {
-                if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
-                    handlerReturnData(url);
-                } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
-                    flushMessageQueue();
-                }
-            }
-            return super.shouldInterceptRequest(webView, webResourceRequest);
-        }
-
-        @Override
-        public WebResourceResponse shouldInterceptRequest(WebView webView, WebResourceRequest webResourceRequest, Bundle bundle) {
-            String url = webResourceRequest.getUrl().toString();
-            if (!TextUtils.isEmpty(url)) {
-                if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
-                    handlerReturnData(url);
-                } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
-                    flushMessageQueue();
-                }
-            }
-            return super.shouldInterceptRequest(webView, webResourceRequest, bundle);
         }
     }
 
