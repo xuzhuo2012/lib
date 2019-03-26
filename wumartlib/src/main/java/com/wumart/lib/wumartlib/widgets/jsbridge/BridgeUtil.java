@@ -86,6 +86,16 @@ public class BridgeUtil {
     }
 
 	/**
+	 * 这里只是加载lib包中assets中的 WebViewJavascriptBridge.js
+	 * @param view webview
+	 * @param path 路径
+	 */
+	public static void webViewLoadLocalJs(android.webkit.WebView view, String path){
+		String jsContent = assetFile2Str(view.getContext(), path);
+		view.loadUrl("javascript:" + jsContent);
+	}
+
+	/**
 	 * 解析assets文件夹里面的代码,去除注释,取可执行的代码
 	 * @param c context
 	 * @param urlStr 路径
