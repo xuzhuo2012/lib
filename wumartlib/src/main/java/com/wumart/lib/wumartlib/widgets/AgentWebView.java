@@ -12,6 +12,7 @@ import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.net.http.SslError;
+import android.os.Build;
 import android.os.Environment;
 import android.os.Looper;
 import android.os.Parcelable;
@@ -282,28 +283,29 @@ public class AgentWebView extends WebView implements WebViewJavascriptBridge {
             return super.shouldOverrideUrlLoading(webView, url);
         }
 
-        @TargetApi(21)
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            String url = request.getUrl().toString();
-            if (url.startsWith("http:")) {
-                loadUrl(url, mMap);
-                return true;
-            } else if (url.startsWith("tel:")) {
-                Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
-                getContext().startActivity(intent);
-                return true;
-            } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
-                try {
-                    url = URLDecoder.decode(url, "UTF-8");
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                String url = request.getUrl().toString();
+                if (url.startsWith("http:")) {
+                    loadUrl(url, mMap);
+                    return true;
+                } else if (url.startsWith("tel:")) {
+                    Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
+                    getContext().startActivity(intent);
+                    return true;
+                } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
+                    try {
+                        url = URLDecoder.decode(url, "UTF-8");
+                    } catch (UnsupportedEncodingException e) {
+                        e.printStackTrace();
+                    }
+                    handlerReturnData(url);
+                    return true;
+                } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
+                    flushMessageQueue();
+                    return true;
                 }
-                handlerReturnData(url);
-                return true;
-            } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
-                flushMessageQueue();
-                return true;
             }
             return super.shouldOverrideUrlLoading(view, request);
         }
@@ -586,7 +588,7 @@ public class AgentWebView extends WebView implements WebViewJavascriptBridge {
      *
      * @param url
      */
-    private void handlerReturnData(String url) {
+    void handlerReturnData(String url) {
         String functionName = BridgeUtil.getFunctionFromReturnUrl(url);
         CallBackFunction f = responseCallbacks.get(functionName);
         String data = BridgeUtil.getDataFromReturnUrl(url);
