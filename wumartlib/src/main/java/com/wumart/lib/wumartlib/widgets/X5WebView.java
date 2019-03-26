@@ -10,15 +10,16 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
-import android.os.Looper;
 import android.os.Parcelable;
-import android.os.SystemClock;
 import android.provider.MediaStore;
+import android.support.annotation.Keep;
 import android.support.v4.content.ContextCompat;
-import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.KeyEvent;
+import android.webkit.JavascriptInterface;
 import android.widget.AbsoluteLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -37,18 +38,17 @@ import com.tencent.smtt.sdk.WebViewClient;
 import com.wumart.lib.wumartlib.R;
 import com.wumart.lib.wumartlib.utils.DownloadUtil;
 import com.wumart.lib.wumartlib.utils.ToastUtils;
-import com.wumart.lib.wumartlib.widgets.jsbridge.BridgeHandler;
-import com.wumart.lib.wumartlib.widgets.jsbridge.BridgeUtil;
-import com.wumart.lib.wumartlib.widgets.jsbridge.CallBackFunction;
-import com.wumart.lib.wumartlib.widgets.jsbridge.DefaultHandler;
-import com.wumart.lib.wumartlib.widgets.jsbridge.Message;
-import com.wumart.lib.wumartlib.widgets.jsbridge.WebViewJavascriptBridge;
+import com.wumart.lib.wumartlib.widgets.jsbridge.CompletionHandler;
+import com.wumart.lib.wumartlib.widgets.jsbridge.OnReturnValue;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +56,7 @@ import java.util.Map;
 import static android.app.Activity.RESULT_OK;
 
 @SuppressLint("SetJavaScriptEnabled")
-public class X5WebView extends WebView implements WebViewJavascriptBridge {
+public class X5WebView extends WebView {
     private ProgressBar progressBar;
     private TextView titleTv;
     private Map<String, String> mMap;
@@ -71,12 +71,15 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
     private int FILECHOOSER_RESULTCODE = 1;
     private int FILECHOOSER_RESULTCODE_FOR_ANDROID_5 = 2;
 
-    private BridgeHandler defaultHandler = new DefaultHandler();
-    private Map<String, BridgeHandler> messageHandlers = new HashMap<>();
-    private Map<String, CallBackFunction> responseCallbacks = new HashMap<>();
-    private long uniqueId = 0;
-    private List<Message> startupMessage = new ArrayList<>();
-    public static final String toLoadJs = "WebViewJavascriptBridge.js";
+    private int callID = 0;
+    private static final String BRIDGE_NAME = "_dsbridge";
+    private static final String LOG_TAG = "dsBridge";
+    private static boolean isDebug = false;
+    private Map<String, Object> javaScriptNamespaceInterfaces = new HashMap<String, Object>();
+    private volatile boolean alertBoxBlock = true;
+    private JavascriptCloseWindowListener javascriptCloseWindowListener = null;
+    private ArrayList<CallInfo> callInfoList;
+    private InnerJavascriptInterface innerJavascriptInterface = new InnerJavascriptInterface();
 
     public X5WebView(Context context) {
         super(context);
@@ -112,6 +115,12 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
         settings.setAllowFileAccess(true);
         settings.setGeolocationEnabled(true);
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
+        addInternalJavascriptObject();
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN) {
+            super.addJavascriptInterface(innerJavascriptInterface, BRIDGE_NAME);
+        } else {
+            settings.setUserAgentString(settings.getUserAgentString() + " _dsbridge");
+        }
         this.requestFocus();
         this.requestFocusFromTouch();
         this.setWebChromeClient(new MyWebChromeClient());
@@ -137,16 +146,6 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
 
     public void isShowProgressBar(boolean isShow) {
         this.isShowProgressBar = isShow;
-    }
-
-    @Override
-    public void loadUrl(String data) {
-        super.loadUrl(data);
-    }
-
-    @Override
-    public void loadUrl(String data, Map<String, String> head) {
-        super.loadUrl(data, head);
     }
 
     public void loadTextData(String data) {
@@ -225,16 +224,6 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
             if (mLoadFinish != null) {
                 mLoadFinish.onLoadFinish();
             }
-            if (toLoadJs != null) {
-                BridgeUtil.webViewLoadLocalJs(webView, toLoadJs);
-            }
-
-            if (getStartupMessage() != null) {
-                for (Message m : getStartupMessage()) {
-                    dispatchMessage(m);
-                }
-                setStartupMessage(null);
-            }
             setActivityTitle(this.isError ? "数据加载失败" : webView.getTitle());
         }
 
@@ -266,17 +255,6 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                 Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
                 getContext().startActivity(intent);
                 return true;
-            } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
-                try {
-                    url = URLDecoder.decode(url, "UTF-8");
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-                handlerReturnData(url);
-                return true;
-            } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
-                flushMessageQueue();
-                return true;
             }
             return super.shouldOverrideUrlLoading(webView, url);
         }
@@ -290,17 +268,6 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
             } else if (url.startsWith("tel:")) {
                 Intent intent = new Intent("android.intent.action.VIEW", Uri.parse(url));
                 getContext().startActivity(intent);
-                return true;
-            } else if (url.startsWith(BridgeUtil.YY_RETURN_DATA)) {
-                try {
-                    url = URLDecoder.decode(url, "UTF-8");
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-                handlerReturnData(url);
-                return true;
-            } else if (url.startsWith(BridgeUtil.YY_OVERRIDE_SCHEMA)) {
-                flushMessageQueue();
                 return true;
             }
             return super.shouldOverrideUrlLoading(webView, webResourceRequest);
@@ -340,6 +307,17 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
                 }
             }
             super.onProgressChanged(webView, newProgress);
+        }
+
+        @Override
+        public boolean onJsPrompt(WebView webView, String s, String s1, String s2, com.tencent.smtt.export.external.interfaces.JsPromptResult jsPromptResult) {
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.JELLY_BEAN) {
+                String prefix = "_dsbridge=";
+                if (s1.startsWith(prefix)) {
+                    jsPromptResult.confirm(innerJavascriptInterface.call(s1.substring(prefix.length()), s2));
+                }
+            }
+            return true;
         }
 
         @Override
@@ -568,216 +546,390 @@ public class X5WebView extends WebView implements WebViewJavascriptBridge {
         }
     }
 
+    /********************************************JsBridge*******************************************/
 
-    /***********************************JsBridge**********************************/
+    private class InnerJavascriptInterface {
 
-    /**
-     * @param handler default handler,handle messages send by js without assigned handler name,
-     *                if js message has handler name, it will be handled by named handlers registered by native
-     */
-    public void setDefaultHandler(BridgeHandler handler) {
-        this.defaultHandler = handler;
-    }
-
-    /**
-     * 获取到CallBackFunction data执行调用并且从数据集移除
-     *
-     * @param url
-     */
-    private void handlerReturnData(String url) {
-        String functionName = BridgeUtil.getFunctionFromReturnUrl(url);
-        CallBackFunction f = responseCallbacks.get(functionName);
-        String data = BridgeUtil.getDataFromReturnUrl(url);
-        if (f != null) {
-            f.onCallBack(data);
-            responseCallbacks.remove(functionName);
-            return;
+        private void PrintDebugInfo(String error) {
+            Log.d(LOG_TAG, error);
+            if (isDebug) {
+                evaluateJavascript(String.format("alert('%s')", "DEBUG ERR MSG:\\n" + error.replaceAll("\\'", "\\\\'")));
+            }
         }
-    }
 
-    @Override
-    public void send(String data) {
-        send(data, null);
-    }
+        @Keep
+        @JavascriptInterface
+        public String call(String methodName, String argStr) {
+            String error = "Js bridge  called, but can't find a corresponded " +
+                    "JavascriptInterface object , please check your code!";
+            String[] nameStr = parseNamespace(methodName.trim());
+            methodName = nameStr[1];
+            Object jsb = javaScriptNamespaceInterfaces.get(nameStr[0]);
+            JSONObject ret = new JSONObject();
+            try {
+                ret.put("code", -1);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            if (jsb == null) {
+                PrintDebugInfo(error);
+                return ret.toString();
+            }
+            Object arg = null;
+            Method method = null;
+            String callback = null;
 
-    @Override
-    public void send(String data, CallBackFunction responseCallback) {
-        doSend(null, data, responseCallback);
-    }
+            try {
+                JSONObject args = new JSONObject(argStr);
+                if (args.has("_dscbstub")) {
+                    callback = args.getString("_dscbstub");
+                }
+                if (args.has("data")) {
+                    arg = args.get("data");
+                }
+            } catch (JSONException e) {
+                error = String.format("The argument of \"%s\" must be a JSON object string!", methodName);
+                PrintDebugInfo(error);
+                e.printStackTrace();
+                return ret.toString();
+            }
 
-    /**
-     * 保存message到消息队列
-     *
-     * @param handlerName      handlerName
-     * @param data             data
-     * @param responseCallback CallBackFunction
-     */
-    private void doSend(String handlerName, String data, CallBackFunction responseCallback) {
-        Message m = new Message();
-        if (!TextUtils.isEmpty(data)) {
-            m.setData(data);
-        }
-        if (responseCallback != null) {
-            String callbackStr = String.format(BridgeUtil.CALLBACK_ID_FORMAT, ++uniqueId + (BridgeUtil.UNDERLINE_STR + SystemClock.currentThreadTimeMillis()));
-            responseCallbacks.put(callbackStr, responseCallback);
-            m.setCallbackId(callbackStr);
-        }
-        if (!TextUtils.isEmpty(handlerName)) {
-            m.setHandlerName(handlerName);
-        }
-        queueMessage(m);
-    }
 
-    /**
-     * list<message> != null 添加到消息集合否则分发消息
-     *
-     * @param m Message
-     */
-    private void queueMessage(Message m) {
-        if (startupMessage != null) {
-            startupMessage.add(m);
-        } else {
-            dispatchMessage(m);
-        }
-    }
+            Class<?> cls = jsb.getClass();
+            boolean asyn = false;
+            try {
+                method = cls.getMethod(methodName,
+                        new Class[]{Object.class, CompletionHandler.class});
+                asyn = true;
+            } catch (Exception e) {
+                try {
+                    method = cls.getMethod(methodName, new Class[]{Object.class});
+                } catch (Exception ex) {
 
-    /**
-     * 分发message 必须在主线程才分发成功
-     *
-     * @param m Message
-     */
-    void dispatchMessage(Message m) {
-        String messageJson = m.toJson();
-        //escape special characters for json string  为json字符串转义特殊字符
-        messageJson = messageJson.replaceAll("(\\\\)([^utrn])", "\\\\\\\\$1$2");
-        messageJson = messageJson.replaceAll("(?<=[^\\\\])(\")", "\\\\\"");
-        messageJson = messageJson.replaceAll("(?<=[^\\\\])(\')", "\\\\\'");
-        messageJson = messageJson.replaceAll("%7B", URLEncoder.encode("%7B"));
-        messageJson = messageJson.replaceAll("%7D", URLEncoder.encode("%7D"));
-        messageJson = messageJson.replaceAll("%22", URLEncoder.encode("%22"));
-        String javascriptCommand = String.format(BridgeUtil.JS_HANDLE_MESSAGE_FROM_JAVA, messageJson);
-        // 必须要找主线程才会将数据传递出去 --- 划重点
-        if (Thread.currentThread() == Looper.getMainLooper().getThread()) {
-            this.loadUrl(javascriptCommand);
-        }
-    }
+                }
+            }
 
-    public List<Message> getStartupMessage() {
-        return startupMessage;
-    }
+            if (method == null) {
+                error = "Not find method \"" + methodName + "\" implementation! please check if the  signature or namespace of the method is right ";
+                PrintDebugInfo(error);
+                return ret.toString();
+            }
 
-    public void setStartupMessage(List<Message> startupMessage) {
-        this.startupMessage = startupMessage;
-    }
 
-    /**
-     * 刷新消息队列
-     */
-    private void flushMessageQueue() {
-        if (Thread.currentThread() == Looper.getMainLooper().getThread()) {
-            loadUrl(BridgeUtil.JS_FETCH_QUEUE_FROM_JAVA, new CallBackFunction() {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                JavascriptInterface annotation = method.getAnnotation(JavascriptInterface.class);
+                if (annotation == null) {
+                    error = "Method " + methodName + " is not invoked, since  " +
+                            "it is not declared with JavascriptInterface annotation! ";
+                    PrintDebugInfo(error);
+                    return ret.toString();
+                }
+            }
 
-                @Override
-                public void onCallBack(String data) {
-                    // deserializeMessage 反序列化消息
-                    List<Message> list = null;
-                    try {
-                        list = Message.toArrayList(data);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        return;
-                    }
-                    if (list == null || list.size() == 0) {
-                        return;
-                    }
-                    for (int i = 0; i < list.size(); i++) {
-                        Message m = list.get(i);
-                        String responseId = m.getResponseId();
-                        // 是否是response  CallBackFunction
-                        if (!TextUtils.isEmpty(responseId)) {
-                            CallBackFunction function = responseCallbacks.get(responseId);
-                            String responseData = m.getResponseData();
-                            function.onCallBack(responseData);
-                            responseCallbacks.remove(responseId);
-                        } else {
-                            CallBackFunction responseFunction = null;
-                            // if had callbackId 如果有回调Id
-                            final String callbackId = m.getCallbackId();
-                            if (!TextUtils.isEmpty(callbackId)) {
-                                responseFunction = new CallBackFunction() {
-                                    @Override
-                                    public void onCallBack(String data) {
-                                        Message responseMsg = new Message();
-                                        responseMsg.setResponseId(callbackId);
-                                        responseMsg.setResponseData(data);
-                                        queueMessage(responseMsg);
+            Object retData;
+            method.setAccessible(true);
+            try {
+                if (asyn) {
+                    final String cb = callback;
+                    method.invoke(jsb, arg, new CompletionHandler() {
+
+                        @Override
+                        public void complete(Object retValue) {
+                            complete(retValue, true);
+                        }
+
+                        @Override
+                        public void complete() {
+                            complete(null, true);
+                        }
+
+                        @Override
+                        public void setProgressData(Object value) {
+                            complete(value, false);
+                        }
+
+                        private void complete(Object retValue, boolean complete) {
+                            try {
+                                JSONObject ret = new JSONObject();
+                                ret.put("code", 0);
+                                ret.put("data", retValue);
+                                //retValue = URLEncoder.encode(ret.toString(), "UTF-8").replaceAll("\\+", "%20");
+                                if (cb != null) {
+                                    //String script = String.format("%s(JSON.parse(decodeURIComponent(\"%s\")).data);", cb, retValue);
+                                    String script = String.format("%s(%s.data);", cb, ret.toString());
+                                    if (complete) {
+                                        script += "delete window." + cb;
                                     }
-                                };
-                            } else {
-                                responseFunction = new CallBackFunction() {
-                                    @Override
-                                    public void onCallBack(String data) {
-                                        // do nothing
-                                    }
-                                };
-                            }
-                            // BridgeHandler执行
-                            BridgeHandler handler;
-                            if (!TextUtils.isEmpty(m.getHandlerName())) {
-                                handler = messageHandlers.get(m.getHandlerName());
-                            } else {
-                                handler = defaultHandler;
-                            }
-                            if (handler != null) {
-                                handler.handler(m.getData(), responseFunction);
+                                    //Log.d(LOG_TAG, "complete " + script);
+                                    evaluateJavascript(script);
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
                         }
+                    });
+                } else {
+                    retData = method.invoke(jsb, arg);
+                    ret.put("code", 0);
+                    ret.put("data", retData);
+                    return ret.toString();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                error = String.format("Call failed：The parameter of \"%s\" in Java is invalid.", methodName);
+                PrintDebugInfo(error);
+                return ret.toString();
+            }
+            return ret.toString();
+        }
+
+    }
+
+    Map<Integer, OnReturnValue> handlerMap = new HashMap<>();
+
+    public interface JavascriptCloseWindowListener {
+        /**
+         * @return If true, close the current activity, otherwise, do nothing.
+         */
+        boolean onClose();
+    }
+
+    public static void setWebContentsDebuggingEnabled(boolean enabled) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(enabled);
+        }
+        isDebug = enabled;
+    }
+
+    private String[] parseNamespace(String method) {
+        int pos = method.lastIndexOf('.');
+        String namespace = "";
+        if (pos != -1) {
+            namespace = method.substring(0, pos);
+            method = method.substring(pos + 1);
+        }
+        return new String[]{namespace, method};
+    }
+
+    @Keep
+    private void addInternalJavascriptObject() {
+        addJavascriptObject(new Object() {
+            @Keep
+            @JavascriptInterface
+            public boolean hasNativeMethod(Object args) throws JSONException {
+                JSONObject jsonObject = (JSONObject) args;
+                String methodName = jsonObject.getString("name").trim();
+                String type = jsonObject.getString("type").trim();
+                String[] nameStr = parseNamespace(methodName);
+                Object jsb = javaScriptNamespaceInterfaces.get(nameStr[0]);
+                if (jsb != null) {
+                    Class<?> cls = jsb.getClass();
+                    boolean asyn = false;
+                    Method method = null;
+                    try {
+                        method = cls.getMethod(nameStr[1],
+                                new Class[]{Object.class, CompletionHandler.class});
+                        asyn = true;
+                    } catch (Exception e) {
+                        try {
+                            method = cls.getMethod(nameStr[1], new Class[]{Object.class});
+                        } catch (Exception ex) {
+
+                        }
+                    }
+                    if (method != null) {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                            JavascriptInterface annotation = method.getAnnotation(JavascriptInterface.class);
+                            if (annotation == null) {
+                                return false;
+                            }
+                        }
+                        if ("all".equals(type) || (asyn && "asyn".equals(type) || (!asyn && "syn".equals(type)))) {
+                            return true;
+                        }
+
                     }
                 }
-            });
+                return false;
+            }
+
+            @Keep
+            @JavascriptInterface
+            public String closePage(Object object) throws JSONException {
+                if (javascriptCloseWindowListener == null || javascriptCloseWindowListener.onClose()) {
+                    Context context = getContext();
+                    if (context instanceof Activity) {
+                        ((Activity) context).onBackPressed();
+                    }
+                }
+                return null;
+            }
+
+            @Keep
+            @JavascriptInterface
+            public void disableJavascriptDialogBlock(Object object) throws JSONException {
+                JSONObject jsonObject = (JSONObject) object;
+                alertBoxBlock = !jsonObject.getBoolean("disable");
+            }
+
+            @Keep
+            @JavascriptInterface
+            public void dsinit(Object jsonObject) {
+                X5WebView.this.dispatchStartupQueue();
+            }
+
+            @Keep
+            @JavascriptInterface
+            public void returnValue(final Object obj) {
+                JSONObject jsonObject = (JSONObject) obj;
+                Object data = null;
+                try {
+                    int id = jsonObject.getInt("id");
+                    boolean isCompleted = jsonObject.getBoolean("complete");
+                    OnReturnValue handler = handlerMap.get(id);
+                    if (jsonObject.has("data")) {
+                        data = jsonObject.get("data");
+                    }
+                    if (handler != null) {
+                        handler.onValue(data);
+                        if (isCompleted) {
+                            handlerMap.remove(id);
+                        }
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+
+        }, "_dsb");
+    }
+
+    private void _evaluateJavascript(String script) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            X5WebView.super.evaluateJavascript(script, null);
+        } else {
+            super.loadUrl("javascript:" + script);
         }
     }
 
-    public void loadUrl(String jsUrl, CallBackFunction returnCallback) {
-        this.loadUrl(jsUrl);
-        // 添加至 Map<String, CallBackFunction>
-        responseCallbacks.put(BridgeUtil.parseFunctionName(jsUrl), returnCallback);
+    public void evaluateJavascript(String script) {
+        _evaluateJavascript(script);
     }
 
-    /**
-     * register handler,so that javascript can call it
-     * 注册处理程序,以便javascript调用它
-     *
-     * @param handlerName handlerName
-     * @param handler     BridgeHandler
-     */
-    public void registerHandler(String handlerName, BridgeHandler handler) {
+    @Override
+    public void loadUrl(final String url) {
+        if (url != null && url.startsWith("javascript:")) {
+            X5WebView.super.loadUrl(url);
+        } else {
+            callInfoList = new ArrayList<>();
+            X5WebView.super.loadUrl(url);
+        }
+    }
+
+    @Override
+    public void loadUrl(final String url, final Map<String, String> additionalHttpHeaders) {
+        if (url != null && url.startsWith("javascript:")) {
+            X5WebView.super.loadUrl(url, additionalHttpHeaders);
+        } else {
+            callInfoList = new ArrayList<>();
+            X5WebView.super.loadUrl(url, additionalHttpHeaders);
+        }
+    }
+
+    @Override
+    public void reload() {
+        callInfoList = new ArrayList<>();
+        X5WebView.super.reload();
+    }
+
+    public void setJavascriptCloseWindowListener(JavascriptCloseWindowListener listener) {
+        javascriptCloseWindowListener = listener;
+    }
+
+    private static class CallInfo {
+        private String data;
+        private int callbackId;
+        private String method;
+
+        CallInfo(String handlerName, int id, Object[] args) {
+            if (args == null) args = new Object[0];
+            data = new JSONArray(Arrays.asList(args)).toString();
+            callbackId = id;
+            method = handlerName;
+        }
+
+        @Override
+        public String toString() {
+            JSONObject jo = new JSONObject();
+            try {
+                jo.put("method", method);
+                jo.put("callbackId", callbackId);
+                jo.put("data", data);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            return jo.toString();
+        }
+    }
+
+    private synchronized void dispatchStartupQueue() {
+        if (callInfoList != null) {
+            for (CallInfo info : callInfoList) {
+                dispatchJavascriptCall(info);
+            }
+            callInfoList = null;
+        }
+    }
+
+    private void dispatchJavascriptCall(CallInfo info) {
+        evaluateJavascript(String.format("window._handleMessageFromNative(%s)", info.toString()));
+    }
+
+    public synchronized <T> void callHandler(String method, Object[] args, final OnReturnValue<T> handler) {
+
+        CallInfo callInfo = new CallInfo(method, ++callID, args);
         if (handler != null) {
-            // 添加至 Map<String, BridgeHandler>
-            messageHandlers.put(handlerName, handler);
+            handlerMap.put(callInfo.callbackId, handler);
+        }
+
+        if (callInfoList != null) {
+            callInfoList.add(callInfo);
+        } else {
+            dispatchJavascriptCall(callInfo);
+        }
+
+    }
+
+    public void callHandler(String method, Object[] args) {
+        callHandler(method, args, null);
+    }
+
+    public <T> void callHandler(String method, OnReturnValue<T> handler) {
+        callHandler(method, null, handler);
+    }
+
+    public void hasJavascriptMethod(String handlerName, OnReturnValue<Boolean> existCallback) {
+        callHandler("_hasJavascriptMethod", new Object[]{handlerName}, existCallback);
+    }
+
+    public void addJavascriptObject(Object object, String namespace) {
+        if (namespace == null) {
+            namespace = "";
+        }
+        if (object != null) {
+            javaScriptNamespaceInterfaces.put(namespace, object);
         }
     }
 
-    /**
-     * unregister handler
-     *
-     * @param handlerName
-     */
-    public void unregisterHandler(String handlerName) {
-        if (handlerName != null) {
-            messageHandlers.remove(handlerName);
+    public void removeJavascriptObject(String namespace) {
+        if (namespace == null) {
+            namespace = "";
         }
+        javaScriptNamespaceInterfaces.remove(namespace);
+
     }
 
-    /**
-     * call javascript registered handler
-     * 调用javascript处理程序注册
-     *
-     * @param handlerName handlerName
-     * @param data        data
-     * @param callBack    CallBackFunction
-     */
-    public void callHandler(String handlerName, String data, CallBackFunction callBack) {
-        doSend(handlerName, data, callBack);
+    public void disableJavascriptDialogBlock(boolean disable) {
+        alertBoxBlock = !disable;
     }
 }
