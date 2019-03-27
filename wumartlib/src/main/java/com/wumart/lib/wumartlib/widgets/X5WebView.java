@@ -12,6 +12,8 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Parcelable;
 import android.provider.MediaStore;
 import android.support.annotation.Keep;
@@ -55,7 +57,6 @@ import java.util.Map;
 
 import static android.app.Activity.RESULT_OK;
 
-@SuppressLint("SetJavaScriptEnabled")
 public class X5WebView extends WebView {
     private ProgressBar progressBar;
     private TextView titleTv;
@@ -80,6 +81,7 @@ public class X5WebView extends WebView {
     private JavascriptCloseWindowListener javascriptCloseWindowListener = null;
     private ArrayList<CallInfo> callInfoList;
     private InnerJavascriptInterface innerJavascriptInterface = new InnerJavascriptInterface();
+    private Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public X5WebView(Context context) {
         super(context);
@@ -96,6 +98,7 @@ public class X5WebView extends WebView {
         initWebView();
     }
 
+    @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     private void initWebView() {
         this.clearCache(true);
         this.progressBar = new ProgressBar(this.getContext(), null, 16842872);
@@ -756,12 +759,18 @@ public class X5WebView extends WebView {
             @Keep
             @JavascriptInterface
             public String closePage(Object object) throws JSONException {
-                if (javascriptCloseWindowListener == null || javascriptCloseWindowListener.onClose()) {
-                    Context context = getContext();
-                    if (context instanceof Activity) {
-                        ((Activity) context).onBackPressed();
+                runOnMainThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (javascriptCloseWindowListener == null
+                                || javascriptCloseWindowListener.onClose()) {
+                            Context context = getContext();
+                            if (context instanceof Activity) {
+                                ((Activity) context).onBackPressed();
+                            }
+                        }
                     }
-                }
+                });
                 return null;
             }
 
@@ -781,65 +790,74 @@ public class X5WebView extends WebView {
             @Keep
             @JavascriptInterface
             public void returnValue(final Object obj) {
-                JSONObject jsonObject = (JSONObject) obj;
-                Object data = null;
-                try {
-                    int id = jsonObject.getInt("id");
-                    boolean isCompleted = jsonObject.getBoolean("complete");
-                    OnReturnValue handler = handlerMap.get(id);
-                    if (jsonObject.has("data")) {
-                        data = jsonObject.get("data");
-                    }
-                    if (handler != null) {
-                        handler.onValue(data);
-                        if (isCompleted) {
-                            handlerMap.remove(id);
+                runOnMainThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        JSONObject jsonObject = (JSONObject) obj;
+                        Object data = null;
+                        try {
+                            int id = jsonObject.getInt("id");
+                            boolean isCompleted = jsonObject.getBoolean("complete");
+                            OnReturnValue handler = handlerMap.get(id);
+                            if (jsonObject.has("data")) {
+                                data = jsonObject.get("data");
+                            }
+                            if (handler != null) {
+                                handler.onValue(data);
+                                if (isCompleted) {
+                                    handlerMap.remove(id);
+                                }
+                            }
+                        } catch (JSONException e) {
+                            e.printStackTrace();
                         }
                     }
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
+                });
             }
-
         }, "_dsb");
     }
 
     private void _evaluateJavascript(String script) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            X5WebView.super.evaluateJavascript(script, null);
+            super.evaluateJavascript(script, null);
         } else {
             super.loadUrl("javascript:" + script);
         }
     }
 
-    public void evaluateJavascript(String script) {
-        _evaluateJavascript(script);
+    public void evaluateJavascript(final String script) {
+        runOnMainThread(new Runnable() {
+            @Override
+            public void run() {
+                _evaluateJavascript(script);
+            }
+        });
     }
 
     @Override
     public void loadUrl(final String url) {
         if (url != null && url.startsWith("javascript:")) {
-            X5WebView.super.loadUrl(url);
+            super.loadUrl(url);
         } else {
             callInfoList = new ArrayList<>();
-            X5WebView.super.loadUrl(url);
+            super.loadUrl(url);
         }
     }
 
     @Override
     public void loadUrl(final String url, final Map<String, String> additionalHttpHeaders) {
         if (url != null && url.startsWith("javascript:")) {
-            X5WebView.super.loadUrl(url, additionalHttpHeaders);
+            super.loadUrl(url, additionalHttpHeaders);
         } else {
             callInfoList = new ArrayList<>();
-            X5WebView.super.loadUrl(url, additionalHttpHeaders);
+            super.loadUrl(url, additionalHttpHeaders);
         }
     }
 
     @Override
     public void reload() {
         callInfoList = new ArrayList<>();
-        X5WebView.super.reload();
+        super.reload();
     }
 
     public void setJavascriptCloseWindowListener(JavascriptCloseWindowListener listener) {
@@ -926,10 +944,17 @@ public class X5WebView extends WebView {
             namespace = "";
         }
         javaScriptNamespaceInterfaces.remove(namespace);
-
     }
 
     public void disableJavascriptDialogBlock(boolean disable) {
         alertBoxBlock = !disable;
+    }
+
+    private void runOnMainThread(Runnable runnable) {
+        if (Looper.getMainLooper() == Looper.myLooper()) {
+            runnable.run();
+            return;
+        }
+        mainHandler.post(runnable);
     }
 }
