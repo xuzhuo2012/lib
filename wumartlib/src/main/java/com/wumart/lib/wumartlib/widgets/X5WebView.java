@@ -658,8 +658,8 @@ public class X5WebView extends WebView {
                                 ret.put("data", retValue);
                                 //retValue = URLEncoder.encode(ret.toString(), "UTF-8").replaceAll("\\+", "%20");
                                 if (cb != null) {
-                                    //String script = String.format("%s(JSON.parse(decodeURIComponent(\"%s\")).data);", cb, retValue);
-                                    String script = String.format("%s(%s.data);", cb, ret.toString());
+                                    //String script = String.format("%s(JSON.parse(decodeURIComponent(\"%s\")));", cb, retValue);
+                                    String script = String.format("%s(%s);", cb, ret.toString());
                                     if (complete) {
                                         script += "delete window." + cb;
                                     }
