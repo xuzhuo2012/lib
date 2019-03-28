@@ -568,15 +568,9 @@ public class X5WebView extends WebView {
             String[] nameStr = parseNamespace(methodName.trim());
             methodName = nameStr[1];
             Object jsb = javaScriptNamespaceInterfaces.get(nameStr[0]);
-            JSONObject ret = new JSONObject();
-            try {
-                ret.put("code", -1);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
             if (jsb == null) {
                 PrintDebugInfo(error);
-                return ret.toString();
+                return "";
             }
             Object arg = null;
             Method method = null;
@@ -594,7 +588,7 @@ public class X5WebView extends WebView {
                 error = String.format("The argument of \"%s\" must be a JSON object string!", methodName);
                 PrintDebugInfo(error);
                 e.printStackTrace();
-                return ret.toString();
+                return "";
             }
 
 
@@ -615,7 +609,7 @@ public class X5WebView extends WebView {
             if (method == null) {
                 error = "Not find method \"" + methodName + "\" implementation! please check if the  signature or namespace of the method is right ";
                 PrintDebugInfo(error);
-                return ret.toString();
+                return "";
             }
 
 
@@ -625,7 +619,7 @@ public class X5WebView extends WebView {
                     error = "Method " + methodName + " is not invoked, since  " +
                             "it is not declared with JavascriptInterface annotation! ";
                     PrintDebugInfo(error);
-                    return ret.toString();
+                    return "";
                 }
             }
 
@@ -653,17 +647,14 @@ public class X5WebView extends WebView {
 
                         private void complete(Object retValue, boolean complete) {
                             try {
-                                JSONObject ret = new JSONObject();
-                                ret.put("code", 0);
-                                ret.put("data", retValue);
-                                //retValue = URLEncoder.encode(ret.toString(), "UTF-8").replaceAll("\\+", "%20");
                                 if (cb != null) {
-                                    //String script = String.format("%s(JSON.parse(decodeURIComponent(\"%s\")));", cb, retValue);
-                                    String script = String.format("%s(%s);", cb, ret.toString());
+                                    StringBuilder strBuilder = new StringBuilder("%s(");
+                                    strBuilder.append(retValue);
+                                    strBuilder.append(");");
+                                    String script = String.format(strBuilder.toString(), cb);
                                     if (complete) {
                                         script += "delete window." + cb;
                                     }
-                                    //Log.d(LOG_TAG, "complete " + script);
                                     evaluateJavascript(script);
                                 }
                             } catch (Exception e) {
@@ -673,19 +664,16 @@ public class X5WebView extends WebView {
                     });
                 } else {
                     retData = method.invoke(jsb, arg);
-                    ret.put("code", 0);
-                    ret.put("data", retData);
-                    return ret.toString();
+                    return retData.toString();
                 }
             } catch (Exception e) {
                 e.printStackTrace();
                 error = String.format("Call failed：The parameter of \"%s\" in Java is invalid.", methodName);
                 PrintDebugInfo(error);
-                return ret.toString();
+                return "";
             }
-            return ret.toString();
+            return "";
         }
-
     }
 
     Map<Integer, OnReturnValue> handlerMap = new HashMap<>();
