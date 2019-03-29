@@ -54,6 +54,7 @@ import java.io.File;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -897,7 +898,9 @@ public class AgentWebView extends WebView {
 
         CallInfo(String handlerName, int id, Object[] args) {
             if (args == null) args = new Object[0];
-            data = new JSONArray(Arrays.asList(args)).toString();
+            List<Object> list = new ArrayList<>();
+            Collections.addAll(list, args);
+            data = new JSONArray(list).toString();
             callbackId = id;
             method = handlerName;
         }
