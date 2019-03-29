@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EasyNavigationBar extends LinearLayout {
+    private RelativeLayout RootLayout;
     private RelativeLayout AddContainerLayout;
 
     //Tab数量
@@ -173,6 +174,7 @@ public class EasyNavigationBar extends LinearLayout {
 
     private void initViews(Context context, AttributeSet attrs) {
         contentView = (RelativeLayout) View.inflate(context, R.layout.container_layout, null);
+        RootLayout = contentView.findViewById(R.id.rl_root);
         addViewLayout = contentView.findViewById(R.id.add_view_ll);
         AddContainerLayout = contentView.findViewById(R.id.add_rl);
         empty_line = contentView.findViewById(R.id.empty_line);
@@ -1055,8 +1057,10 @@ public class EasyNavigationBar extends LinearLayout {
         }
         if (isShow) {
             AddContainerLayout.setVisibility(VISIBLE);
+            RootLayout.requestLayout();
         } else {
             AddContainerLayout.setVisibility(GONE);
+            RootLayout.requestLayout();
         }
     }
 
