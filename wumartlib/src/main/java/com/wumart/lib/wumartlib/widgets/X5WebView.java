@@ -26,6 +26,7 @@ import android.widget.AbsoluteLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.google.gson.Gson;
 import com.tencent.smtt.export.external.interfaces.JsResult;
 import com.tencent.smtt.export.external.interfaces.SslError;
 import com.tencent.smtt.export.external.interfaces.SslErrorHandler;
@@ -43,14 +44,12 @@ import com.wumart.lib.wumartlib.utils.ToastUtils;
 import com.wumart.lib.wumartlib.widgets.jsbridge.CompletionHandler;
 import com.wumart.lib.wumartlib.widgets.jsbridge.OnReturnValue;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -859,7 +858,7 @@ public class X5WebView extends WebView {
 
         CallInfo(String handlerName, int id, Object[] args) {
             if (args == null) args = new Object[0];
-            data = new JSONArray(Arrays.asList(args)).toString();
+            data = new Gson().toJson(args);
             callbackId = id;
             method = handlerName;
         }

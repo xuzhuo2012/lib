@@ -40,21 +40,19 @@ import android.widget.AbsoluteLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.google.gson.Gson;
 import com.wumart.lib.wumartlib.R;
 import com.wumart.lib.wumartlib.utils.DownloadUtil;
 import com.wumart.lib.wumartlib.utils.ToastUtils;
 import com.wumart.lib.wumartlib.widgets.jsbridge.CompletionHandler;
 import com.wumart.lib.wumartlib.widgets.jsbridge.OnReturnValue;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -898,9 +896,7 @@ public class AgentWebView extends WebView {
 
         CallInfo(String handlerName, int id, Object[] args) {
             if (args == null) args = new Object[0];
-            List<Object> list = new ArrayList<>();
-            Collections.addAll(list, args);
-            data = new JSONArray(list).toString();
+            data = new Gson().toJson(args);
             callbackId = id;
             method = handlerName;
         }
