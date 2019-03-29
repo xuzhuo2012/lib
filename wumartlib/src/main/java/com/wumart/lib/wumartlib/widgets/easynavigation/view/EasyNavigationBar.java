@@ -1047,6 +1047,20 @@ public class EasyNavigationBar extends LinearLayout {
     }
 
     /**
+     * 设置导航栏显示/隐藏
+     */
+    public void showNavigationBar(boolean isShow) {
+        if (AddContainerLayout == null) {
+            return;
+        }
+        if (isShow) {
+            AddContainerLayout.setVisibility(VISIBLE);
+        } else {
+            AddContainerLayout.setVisibility(GONE);
+        }
+    }
+
+    /**
      * 设置是否显示小红点
      *
      * @param position 第几个tab
@@ -1267,7 +1281,7 @@ public class EasyNavigationBar extends LinearLayout {
     public EasyNavigationBar anim(Anim anim) {
         if (anim != null) {
             this.anim = anim.getYoyo();
-        }else{
+        } else {
             this.anim = null;
         }
         return this;
