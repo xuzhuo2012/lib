@@ -1062,7 +1062,7 @@ public class EasyNavigationBar extends LinearLayout {
             }
         } else {
             if (hasPadding) {
-                mViewPager.setPadding(0, 0, 0, (int) (navigationHeight + lineHeight));
+                mViewPager.setPadding(0, 0, 0, 0);
             }
             AddContainerLayout.setVisibility(GONE);
         }
