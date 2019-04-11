@@ -32,6 +32,8 @@ import com.tencent.smtt.export.external.interfaces.SslError;
 import com.tencent.smtt.export.external.interfaces.SslErrorHandler;
 import com.tencent.smtt.export.external.interfaces.WebResourceError;
 import com.tencent.smtt.export.external.interfaces.WebResourceRequest;
+import com.tencent.smtt.sdk.CookieManager;
+import com.tencent.smtt.sdk.CookieSyncManager;
 import com.tencent.smtt.sdk.DownloadListener;
 import com.tencent.smtt.sdk.ValueCallback;
 import com.tencent.smtt.sdk.WebChromeClient;
@@ -188,6 +190,22 @@ public class X5WebView extends WebView {
 
     @Override
     public void destroy() {
+        try {
+            //清除cookie即可彻底清除缓存
+            CookieSyncManager.createInstance(getContext());
+            CookieManager.getInstance().removeAllCookie();
+            clearCache(true);
+            clearFormData();
+            clearMatches();
+            clearSslPreferences();
+            clearDisappearingChildren();
+            clearHistory();
+            clearAnimation();
+            removeAllViews();
+            freeMemory();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         super.destroy();
     }
 

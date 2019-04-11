@@ -24,6 +24,8 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.webkit.CookieManager;
+import android.webkit.CookieSyncManager;
 import android.webkit.DownloadListener;
 import android.webkit.JavascriptInterface;
 import android.webkit.JsPromptResult;
@@ -192,6 +194,22 @@ public class AgentWebView extends WebView {
 
     @Override
     public void destroy() {
+        try {
+            //清除cookie即可彻底清除缓存
+            CookieSyncManager.createInstance(getContext());
+            CookieManager.getInstance().removeAllCookie();
+            clearCache(true);
+            clearFormData();
+            clearMatches();
+            clearSslPreferences();
+            clearDisappearingChildren();
+            clearHistory();
+            clearAnimation();
+            removeAllViews();
+            freeMemory();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         super.destroy();
     }
 
