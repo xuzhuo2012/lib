@@ -66,6 +66,7 @@ public class X5WebView extends WebView {
     private WebViewFileChooseInterface fileChooseInterface;
     private boolean isShowProgressBar = true;
     public boolean isChooseImage = false;
+    private boolean isNeedClearCache = true;
     private Uri imageUri;
 
     private ValueCallback<Uri> valueCallback;
@@ -188,19 +189,30 @@ public class X5WebView extends WebView {
         }
     }
 
+    /**
+     * 是否需要清理缓存
+     *
+     * @param needClearCache
+     */
+    public void setNeedClearCache(boolean needClearCache) {
+        this.isNeedClearCache = needClearCache;
+    }
+
     @Override
     public void destroy() {
         try {
-            //清除cookie即可彻底清除缓存
-            CookieSyncManager.createInstance(getContext());
-            CookieManager.getInstance().removeAllCookie();
-            clearCache(true);
-            clearFormData();
-            clearMatches();
-            clearSslPreferences();
-            clearDisappearingChildren();
-            clearHistory();
-            clearAnimation();
+            if (this.isNeedClearCache) {
+                //清除cookie即可彻底清除缓存
+                CookieSyncManager.createInstance(getContext());
+                CookieManager.getInstance().removeAllCookie();
+                clearCache(true);
+                clearFormData();
+                clearMatches();
+                clearSslPreferences();
+                clearDisappearingChildren();
+                clearHistory();
+                clearAnimation();
+            }
             removeAllViews();
             freeMemory();
         } catch (Exception e) {
