@@ -65,19 +65,27 @@ public class AgentWebView extends WebView {
     private ProgressBar progressBar;
     private TextView titleTv;
     private Map<String, String> mMap;
-    private WebViewLoadInterface mLoadFinish;
-    private WebViewFileChooseInterface fileChooseInterface;
-    private WebViewVideoInterface videoInterface;
     private boolean isShowProgressBar = true;
     public boolean isChooseImage = false;
     private boolean isNeedClearCache = true;
     private Uri imageUri;
-
+    /**
+     * 对外接口
+     */
+    private WebViewLoadInterface mLoadFinish;
+    private WebViewFileChooseInterface fileChooseInterface;
+    private WebViewVideoInterface videoInterface;
+    private WebViewErrorInterface errorInterface;
+    /**
+     * 文件上传
+     */
     private ValueCallback<Uri> valueCallback;
     private ValueCallback<Uri[]> valueCallback2;
     private int FILECHOOSER_RESULTCODE = 1;
     private int FILECHOOSER_RESULTCODE_FOR_ANDROID_5 = 2;
-
+    /**
+     * JsBridge
+     */
     private int callID = 0;
     private static final String BRIDGE_NAME = "_dsbridge";
     private static final String LOG_TAG = "dsBridge";
@@ -205,7 +213,7 @@ public class AgentWebView extends WebView {
     @Override
     public void destroy() {
         try {
-            if(this.isNeedClearCache){
+            if (this.isNeedClearCache) {
                 //清除cookie即可彻底清除缓存
                 CookieSyncManager.createInstance(getContext());
                 CookieManager.getInstance().removeAllCookie();
@@ -239,6 +247,16 @@ public class AgentWebView extends WebView {
         void onBack();
     }
 
+    public void setErroInterface(WebViewErrorInterface errorInterface) {
+        this.errorInterface = errorInterface;
+    }
+
+    public interface WebViewErrorInterface {
+        void onReceivedError(WebView webView, int errorCode, String description, String failingUrl);
+
+        void onReceivedError(WebView webView, WebResourceRequest webResourceRequest, WebResourceError webResourceError);
+    }
+
     public class MyWebViewClient extends WebViewClient {
         private boolean isError = false;
 
@@ -267,6 +285,10 @@ public class AgentWebView extends WebView {
         public void onReceivedError(WebView webView, int errorCode, String description, String failingUrl) {
             this.isError = true;
             setActivityTitle("数据加载失败");
+            if (errorInterface != null) {
+                errorInterface.onReceivedError(webView, errorCode, description, failingUrl);
+                return;
+            }
             super.onReceivedError(webView, errorCode, description, failingUrl);
         }
 
@@ -274,6 +296,10 @@ public class AgentWebView extends WebView {
         public void onReceivedError(WebView webView, WebResourceRequest webResourceRequest, WebResourceError webResourceError) {
             this.isError = true;
             setActivityTitle("数据加载失败");
+            if (errorInterface != null) {
+                errorInterface.onReceivedError(webView, webResourceRequest, webResourceError);
+                return;
+            }
             super.onReceivedError(webView, webResourceRequest, webResourceError);
         }
 
@@ -377,6 +403,14 @@ public class AgentWebView extends WebView {
                 }
             }
             super.onProgressChanged(webView, newProgress);
+        }
+
+        @Override
+        public void onReceivedTitle(WebView view, String title) {
+            super.onReceivedTitle(view, title);
+            if (title.contains("404") && errorInterface != null) {
+                errorInterface.onReceivedError(view, 404, "未找到网页", view.getUrl());
+            }
         }
 
         @Override
